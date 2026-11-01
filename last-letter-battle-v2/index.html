@@ -189,7 +189,7 @@ async function joinRoom(){
   const key=identityKey();let id=localStorage.getItem(key);if(!id){id=uuid();localStorage.setItem(key,id)}
   const {data,error}=await db.from("llb_players").upsert({id,room_code:room,name,team},{onConflict:"id"}).select().single();if(error)throw error;
   player=data;isTeacher=false;history.replaceState({},"",location.pathname+"?room="+room);showRoom();await connectRoom();say("wordStatus","Siz "+(team===1?"1-guruh":"2-guruh")+"ga qo‘shildingiz.");
- }catch(e){say("joinStatus","Qo‘shilishda xato: "+e.message,true);localStorage.removeItem(identityKey())}
+ }catch(e){say("joinStatus","Qo‘shilishda xato: "+e.message,true)}
  finally{joining=false;$("joinRoom").disabled=false}
 }
 $("createRoom").addEventListener("click",createRoom);$("openTeacher").addEventListener("click",openTeacher);$("joinRoom").addEventListener("click",joinRoom);
