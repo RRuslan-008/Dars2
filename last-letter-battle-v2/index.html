@@ -228,7 +228,7 @@ $("copyLink").addEventListener("click",async()=>{try{await navigator.clipboard.w
 $("downloadQr").addEventListener("click",()=>{const canvas=$("qr").querySelector("canvas");const img=$("qr").querySelector("img");const url=canvas?.toDataURL("image/png")||img?.src;if(!url){say("qrStatus","QR hali tayyor emas.",true);return}const a=document.createElement("a");a.href=url;a.download="last-letter-battle-qr.png";a.click()});
 (async()=>{
  const params=new URLSearchParams(location.search),initial=params.get("room");
- if(initial){$("roomCodeInput").value=initial.toUpperCase();$("roomCodeInput").closest(".card").classList.add("hidden");}
+ if(initial){$("roomCodeInput").value=initial.toUpperCase();}
  if(!db){$("connection").textContent="Backend kutubxonasi yuklanmadi";return}
  if(initial&&params.get("teacher")==="1"){room=initial.toUpperCase();isTeacher=true;$("setup").classList.remove("hidden");$("teacherPin").placeholder="O‘qituvchi paroli";$("roomCodeInput").value=room;}
 })();
