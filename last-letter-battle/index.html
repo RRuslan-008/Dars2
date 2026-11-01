@@ -59,8 +59,8 @@ button{border:0;border-radius:12px;padding:12px 16px;font:700 15px inherit;curso
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
 // Supabase loyihangiz yaratilgach, URL va anon key qiymatlarini shu yerga kiriting.
-const SUPABASE_URL = "YOUR_SUPABASE_PROJECT_URL";
-const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
+const SUPABASE_URL = "https://optmsaojyemruzfeljzv.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_RUmojDcEO0uVz52GP9vT-w_xNptGYrU";
 const $ = id => document.getElementById(id);
 let db=null, room=null, player=null, isTeacher=false, channel=null, poll=null;
 let players=[], game={status:"waiting",selected1:null,selected2:null,turn:1,score1:0,score2:0,seconds:90,lastWord:"",used:[],words:[],endsAt:null};
@@ -85,11 +85,12 @@ function render(){
  const active=game.status==="playing"&&player&&((game.turn===1&&player.id===game.selected1?.id)||(game.turn===2&&player.id===game.selected2?.id));
  $("wordInput").disabled=!active;$("sendWord").disabled=!active;
  $("start").disabled=!(game.selected1&&game.selected2)||game.status==="playing";
- if(isTeacher)$("teacherMsg").textContent=game.selected1&&game.selected2?"Tanlangan o‘yinchilar tayyor. START bosing.":"Har ikki jamoadan bittadan o‘yinchi tanlang.";
+ if(isTeacher)$("teacherMsg").textContent=game.selected1&&game.selected2?"Tanlangan o‘yinchilar tayyor. START bosing.":"Har ikki jamoadan bittadan o‘quvchi tanlang.";
+ if(game.status==="finished")$("winner").textContent=game.score1===game.score2?"🤝 Durrang!":game.score1>game.score2?"🏆 1-GURUH G‘OLIB!":"🏆 2-GURUH G‘OLIB!";
 }
 async function loadRoom(){
  if(!db){$("connection").textContent="Backend sozlanmagan";return}
- const {data:r,error}=await db.from("llb_rooms").select("*").eq("code",room).maybeSingle();
+ const {data:r,error}=await db.from("llb_rooms").select("code,created_at").eq("code",room).maybeSingle();
  if(error||!r){$("connection").textContent="Xona topilmadi";return}
  $("connection").textContent="Onlayn";await refresh();
  channel=db.channel("room-"+room).on("postgres_changes",{event:"*",schema:"public",table:"llb_players",filter:"room_code=eq."+room},refresh)
@@ -116,7 +117,7 @@ function startTicker(){
   if(left<=0&&isTeacher){game.status="finished";game.seconds=0;await saveGame();stopTicker();$("winner").textContent=game.score1===game.score2?"🤝 Durrang!":game.score1>game.score2?"🏆 1-GURUH G‘OLIB!":"🏆 2-GURUH G‘OLIB!";}
  },250);
 }
-function stopTicker(){if(ticking){clearInterval(ticking);ticking=null}if(game.status!=="playing")$("timer").textContent="01:30"}
+function stopTicker(){if(ticking){clearInterval(ticking);ticking=null}if(game.status==="finished")$("timer").textContent="00:00";else if(game.status!=="playing")$("timer").textContent="01:30"}
 async function createRoom(){
  if(!db){alert("Avval README.md dagi Supabase sozlamalarini bajaring. Hozir sayt backend bilan ulanmagan.");return}
  const pin=$("teacherPin").value.trim();if(pin.length<4){alert("Kamida 4 belgili o‘qituvchi parolini kiriting.");return}
@@ -137,8 +138,8 @@ async function enterRoom(){
 async function openTeacher(){
  if(!db){alert("Avval Supabase sozlamalarini bajaring.");return}
  room=$("roomCodeInput").value.trim().toUpperCase();const pin=$("teacherPin").value.trim();
- const {data:r}=await db.from("llb_rooms").select("*").eq("code",room).eq("teacher_pin",pin).maybeSingle();
- if(!r){alert("Xona kodi yoki parol noto‘g‘ri.");return}
+ const {data:ok,error}=await db.rpc("verify_teacher_pin",{p_code:room,p_pin:pin});
+ if(error||!ok){alert("Xona kodi yoki parol noto‘g‘ri.");return}
  isTeacher=true;sessionStorage.setItem("llb_teacher_"+room,pin);history.replaceState({}, "",location.pathname+"?room="+room+"&teacher=1");showRoom();await loadRoom();
 }
 $("createRoom").onclick=createRoom;$("joinRoom").onclick=enterRoom;$("openTeacher").onclick=openTeacher;
