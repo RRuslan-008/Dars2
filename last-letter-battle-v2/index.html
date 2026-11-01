@@ -61,7 +61,7 @@ const SUPABASE_KEY="sb_publishable_RUmojDcEO0uVz52GP9vT-w_xNptGYrU";
 const $=id=>document.getElementById(id);
 const db=window.supabase?.createClient(SUPABASE_URL,SUPABASE_KEY,{realtime:{params:{eventsPerSecond:10}}});
 let room=null,player=null,isTeacher=false,players=[],game=emptyGame(),channel=null,pollTimer=null,refreshTimer=null,refreshing=false,refreshQueued=false,ticker=null,joining=false,spinning=false;
-function emptyGame(){return {status:"waiting",selected1:null,selected2:null,turn:1,score1:0,score2:0,seconds:90,lastWord:"",used:[],words:[],endsAt:null}}
+function emptyGame(){return {status:"waiting",selected1:null,selected2:null,turn:1,score1:0,score2:0,seconds:90,time1:90,time2:90,winnerTeam:null,lastWord:"",used:[],words:[],endsAt:null}}
 function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 function say(id,msg,error=false){$(id).textContent=msg;$(id).classList.toggle("error",error)}
 function roomUrl(){const u=new URL(location.href);u.search="";u.searchParams.set("room",room);u.searchParams.set("mode","student");u.hash="";return u.toString()}
@@ -77,7 +77,7 @@ function renderGame(){
  $("wheel1").textContent=game.selected1?.name||"Hali tanlanmadi";$("wheel2").textContent=game.selected2?.name||"Hali tanlanmadi";
  $("score1").textContent=game.score1||0;$("score2").textContent=game.score2||0;
  $("lastWord").textContent=game.lastWord||"—";$("nextLetter").textContent=game.lastWord?game.lastWord.slice(-1).toUpperCase():"Istalgan";
- $("turn").textContent=game.status==="playing"?(Number(game.turn)===1?"🔵 1-guruh navbati":"⚫ 2-guruh navbati"):game.status==="finished"?"O‘yin yakunlandi":"O‘yin boshlanishini kuting";
+ $("turn").textContent=game.status==="playing"?(Number(game.turn)===1?"🔵 1-guruh navbati · o‘z vaqti":"⚫ 2-guruh navbati · o‘z vaqti"):game.status==="finished"?"O‘yin yakunlandi":"O‘yin boshlanishini kuting";
  $("wordFeed").innerHTML=(game.words||[]).slice().reverse().map(w=>'<span class="word">'+esc(w.word)+' · '+(Number(w.team)===1?"🔵":"⚫")+'</span>').join("");
  if(isTeacher){
   $("monitorTurn").textContent=game.status==="playing"?(Number(game.turn)===1?"1-guruh":"2-guruh"):"Kutilmoqda";
@@ -89,7 +89,7 @@ function renderGame(){
  const selected=Number(game.turn)===1?game.selected1:game.selected2;
  const canPlay=game.status==="playing"&&player&&selected&&String(player.id)===String(selected.id);
  $("wordInput").disabled=!canPlay;$("sendWord").disabled=!canPlay;
- if(game.status==="finished")$("winner").textContent="⏰ VAQT TUGADI · "+(game.score1===game.score2?"🤝 DURRANG":game.score1>game.score2?"🏆 1-GURUH YUTDI":"🏆 2-GURUH YUTDI");
+ if(game.status==="finished")$("winner").textContent="⏰ VAQT TUGADI · "+(game.winnerTeam===1?"🏆 1-GURUH YUTDI":game.winnerTeam===2?"🏆 2-GURUH YUTDI":game.score1===game.score2?"🤝 DURRANG":game.score1>game.score2?"🏆 1-GURUH YUTDI":"🏆 2-GURUH YUTDI");
  else $("winner").textContent="";
 }
 function showRoom(){
@@ -117,8 +117,8 @@ async function fetchRoster(){
 async function fetchGame(){
  const {data,error}=await db.from("llb_game").select("*").eq("room_code",room).maybeSingle();
  if(error)throw error;
- if(data)game={status:data.status||"waiting",selected1:data.selected1,selected2:data.selected2,turn:Number(data.turn)||1,score1:Number(data.score1)||0,score2:Number(data.score2)||0,seconds:Number(data.seconds)||90,lastWord:data.last_word||"",used:data.used_words||[],words:data.words||[],endsAt:data.ends_at||null};
- if(game.status==="playing"&&game.endsAt){const left=Math.max(0,Math.ceil((new Date(game.endsAt).getTime()-Date.now())/1000));$("timer").textContent=String(Math.floor(left/60)).padStart(2,"0")+":"+String(left%60).padStart(2,"0");if(left===0){game.status="finished";game.seconds=0;if(isTeacher){try{await saveGame()}catch(e){say("wordStatus","Vaqt tugadi, natijani saqlashda xato: "+e.message,true)}}}}renderGame();if(game.status==="playing")startTicker();else stopTicker();
+ if(data)game={status:data.status||"waiting",selected1:data.selected1,selected2:data.selected2,turn:Number(data.turn)||1,score1:Number(data.score1)||0,score2:Number(data.score2)||0,seconds:Number(data.seconds)||90,time1:Number(data.time1_remaining??90),time2:Number(data.time2_remaining??90),winnerTeam:data.winner_team?Number(data.winner_team):null,lastWord:data.last_word||"",used:data.used_words||[],words:data.words||[],endsAt:data.ends_at||null};
+ if(game.status==="playing"&&game.endsAt){const left=Math.max(0,Math.ceil((new Date(game.endsAt).getTime()-Date.now())/1000));if(Number(game.turn)===1)game.time1=left;else game.time2=left;$("timer").textContent=String(Math.floor(left/60)).padStart(2,"0")+":"+String(left%60).padStart(2,"0");if(left===0){game.status="finished";game.seconds=0;game.winnerTeam=Number(game.turn)===1?2:1;if(isTeacher){try{await saveGame()}catch(e){say("wordStatus","Vaqt tugadi, natijani saqlashda xato: "+e.message,true)}}}}renderGame();if(game.status==="playing")startTicker();else stopTicker();
 }
 async function refreshAll(){
  if(!db||!room)return;
@@ -142,7 +142,7 @@ async function connectRoom(){
  document.addEventListener("visibilitychange",()=>{if(!document.hidden)scheduleRefresh(0)});
 }
 async function saveGame(){
- const row={room_code:room,status:game.status,selected1:game.selected1,selected2:game.selected2,turn:game.turn,score1:game.score1,score2:game.score2,seconds:game.seconds,last_word:game.lastWord,used_words:game.used,words:game.words,ends_at:game.endsAt};
+ const row={room_code:room,status:game.status,selected1:game.selected1,selected2:game.selected2,turn:game.turn,score1:game.score1,score2:game.score2,seconds:game.seconds,time1_remaining:game.time1,time2_remaining:game.time2,winner_team:game.winnerTeam,last_word:game.lastWord,used_words:game.used,words:game.words,ends_at:game.endsAt};
  const {error}=await db.from("llb_game").upsert(row,{onConflict:"room_code"});if(error)throw error;renderGame();
 }
 function startTicker(){
@@ -152,7 +152,7 @@ function startTicker(){
   const left=Math.max(0,Math.ceil((new Date(game.endsAt).getTime()-Date.now())/1000));
   $("timer").textContent=String(Math.floor(left/60)).padStart(2,"0")+":"+String(left%60).padStart(2,"0");
   if(left===0&&game.status!=="finished"){
-   game.status="finished";game.seconds=0;renderGame();$("timer").textContent="00:00";stopTicker();
+   game.status="finished";game.seconds=0;game.winnerTeam=Number(game.turn)===1?2:1;if(Number(game.turn)===1)game.time1=0;else game.time2=0;renderGame();$("timer").textContent="00:00";stopTicker();
    if(isTeacher){try{await saveGame()}catch(e){say("wordStatus","Vaqt tugadi, natijani saqlashda xato: "+e.message,true)}}
   }
  },250);
@@ -204,7 +204,7 @@ $("spin").addEventListener("click",async()=>{
 $("start").addEventListener("click",async()=>{
  if(!isTeacher)return;
  try{await fetchGame();if(!game.selected1||!game.selected2)throw new Error("Avval ikkala jamoadan o‘yinchi tanlang");
-  game={...emptyGame(),status:"playing",selected1:game.selected1,selected2:game.selected2,endsAt:new Date(Date.now()+90000).toISOString()};await saveGame();startTicker()
+  game={...emptyGame(),status:"playing",selected1:game.selected1,selected2:game.selected2,time1:90,time2:90,winnerTeam:null,endsAt:new Date(Date.now()+90000).toISOString()};await saveGame();startTicker()
  }catch(e){alert(e.message)}
 });
 $("reset").addEventListener("click",async()=>{if(!isTeacher)return;game=emptyGame();try{await saveGame()}catch(e){alert(e.message)}});
@@ -213,13 +213,13 @@ $("sendWord").addEventListener("click",async()=>{
  const button=$("sendWord");if(button.disabled||!player)return;button.disabled=true;
  try{
   const word=$("wordInput").value.trim().toLowerCase();if(!/^[a-z]{2,20}$/.test(word))throw new Error("2–20 harfli inglizcha so‘z kiriting");
-  await fetchGame();if(game.status==="playing"&&game.endsAt&&Date.now()>=new Date(game.endsAt).getTime()){game.status="finished";game.seconds=0;renderGame();if(isTeacher)await saveGame();throw new Error("Vaqt tugadi. "+(game.score1===game.score2?"Durrang":game.score1>game.score2?"1-guruh yutdi":"2-guruh yutdi"));}const chosen=Number(game.turn)===1?game.selected1:game.selected2;
+  await fetchGame();if(game.status==="playing"&&game.endsAt&&Date.now()>=new Date(game.endsAt).getTime()){game.status="finished";game.seconds=0;game.winnerTeam=Number(game.turn)===1?2:1;if(Number(game.turn)===1)game.time1=0;else game.time2=0;renderGame();if(isTeacher)await saveGame();throw new Error("Vaqt tugadi. "+(game.winnerTeam===1?"1-guruh yutdi":"2-guruh yutdi"));}const chosen=Number(game.turn)===1?game.selected1:game.selected2;
   if(game.status!=="playing"||!chosen||String(chosen.id)!==String(player.id))throw new Error("Hozir sizning navbatingiz emas");
   if(game.lastWord&&word[0]!==game.lastWord.slice(-1))throw new Error("So‘z "+game.lastWord.slice(-1).toUpperCase()+" harfi bilan boshlanishi kerak");
   if(game.used.includes(word))throw new Error("Bu so‘z oldin ishlatilgan");
   say("wordStatus","So‘z lug‘atdan tekshirilmoqda…");if(!await dictionaryHasWord(word))throw new Error("Lug‘atda bu so‘z topilmadi");
   await fetchGame();const current=Number(game.turn)===1?game.selected1:game.selected2;if(game.status!=="playing"||!current||String(current.id)!==String(player.id)||game.used.includes(word))throw new Error("O‘yin holati o‘zgardi. Qayta urinib ko‘ring");
-  game.lastWord=word;game.used.push(word);game.words.push({word,team:Number(game.turn),name:player.name});if(Number(game.turn)===1)game.score1++;else game.score2++;game.turn=Number(game.turn)===1?2:1;await saveGame();$("wordInput").value="";say("wordStatus","To‘g‘ri! Navbat boshqa jamoaga o‘tdi.");
+  const activeTeam=Number(game.turn),remaining=Math.max(0,Math.ceil((new Date(game.endsAt).getTime()-Date.now())/1000));if(activeTeam===1)game.time1=remaining;else game.time2=remaining;game.lastWord=word;game.used.push(word);game.words.push({word,team:activeTeam,name:player.name});if(activeTeam===1)game.score1++;else game.score2++;game.turn=activeTeam===1?2:1;const nextRemaining=game.turn===1?game.time1:game.time2;if(nextRemaining<=0){game.status="finished";game.winnerTeam=activeTeam;game.seconds=0}else{game.endsAt=new Date(Date.now()+nextRemaining*1000).toISOString()}await saveGame();$("wordInput").value="";say("wordStatus","To‘g‘ri! Navbat boshqa jamoaga o‘tdi.");
  }catch(e){say("wordStatus",e.message,true);await refreshAll()}
  finally{button.disabled=!($("wordInput").disabled===false)}
 });
