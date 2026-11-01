@@ -64,7 +64,7 @@ let room=null,player=null,isTeacher=false,players=[],game=emptyGame(),channel=nu
 function emptyGame(){return {status:"waiting",selected1:null,selected2:null,turn:1,score1:0,score2:0,seconds:90,lastWord:"",used:[],words:[],endsAt:null}}
 function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 function say(id,msg,error=false){$(id).textContent=msg;$(id).classList.toggle("error",error)}
-function roomUrl(){const u=new URL(location.href);u.search="";u.searchParams.set("room",room);u.searchParams.set("student","1");u.hash="";return u.toString()}
+function roomUrl(){const u=new URL(location.href);u.search="";u.searchParams.set("room",room);u.searchParams.set("mode","student");u.hash="";return u.toString()}
 function uuid(){return crypto.randomUUID()}
 function rosterHtml(arr){return arr.length?arr.map(p=>'<div class="person"><span>'+esc(p.name)+'</span><small>Qo‘shildi</small></div>').join(""):'<div class="empty">Hali ishtirokchi yo‘q</div>'}
 function renderRoster(){
@@ -89,7 +89,7 @@ function renderGame(){
  const selected=Number(game.turn)===1?game.selected1:game.selected2;
  const canPlay=game.status==="playing"&&player&&selected&&String(player.id)===String(selected.id);
  $("wordInput").disabled=!canPlay;$("sendWord").disabled=!canPlay;
- if(game.status==="finished")$("winner").textContent=game.score1===game.score2?"🤝 DURRANG":game.score1>game.score2?"🏆 1-GURUH G‘OLIB":"🏆 2-GURUH G‘OLIB";
+ if(game.status==="finished")$("winner").textContent="⏰ VAQT TUGADI · "+(game.score1===game.score2?"🤝 DURRANG":game.score1>game.score2?"🏆 1-GURUH YUTDI":"🏆 2-GURUH YUTDI");
  else $("winner").textContent="";
 }
 function showRoom(){
@@ -118,7 +118,7 @@ async function fetchGame(){
  const {data,error}=await db.from("llb_game").select("*").eq("room_code",room).maybeSingle();
  if(error)throw error;
  if(data)game={status:data.status||"waiting",selected1:data.selected1,selected2:data.selected2,turn:Number(data.turn)||1,score1:Number(data.score1)||0,score2:Number(data.score2)||0,seconds:Number(data.seconds)||90,lastWord:data.last_word||"",used:data.used_words||[],words:data.words||[],endsAt:data.ends_at||null};
- renderGame();if(game.status==="playing")startTicker();else stopTicker();
+ if(game.status==="playing"&&game.endsAt){const left=Math.max(0,Math.ceil((new Date(game.endsAt).getTime()-Date.now())/1000));$("timer").textContent=String(Math.floor(left/60)).padStart(2,"0")+":"+String(left%60).padStart(2,"0")}renderGame();if(game.status==="playing")startTicker();else stopTicker();
 }
 async function refreshAll(){
  if(!db||!room)return;
@@ -229,7 +229,7 @@ $("downloadQr").addEventListener("click",()=>{const canvas=$("qr").querySelector
 (async()=>{
  const params=new URLSearchParams(location.search),initial=params.get("room");
  if(initial){$("roomCodeInput").value=initial.toUpperCase();}
- if(params.get("student")==="1" && params.get("teacher")!=="1"){$("teacherSetupCard").classList.add("hidden");$("studentName").focus();}
+ if(params.get("mode")==="student" && params.get("teacher")!=="1"){$("teacherSetupCard").classList.add("hidden");$("studentName").focus();$("studentName").placeholder="O‘quvchi ismi";$("joinStatus").textContent="O‘quvchi rejimi · xona kodi avtomatik kiritilgan";}
  if(!db){$("connection").textContent="Backend kutubxonasi yuklanmadi";return}
  if(initial&&params.get("teacher")==="1"){room=initial.toUpperCase();isTeacher=true;$("setup").classList.remove("hidden");$("teacherPin").placeholder="O‘qituvchi paroli";$("roomCodeInput").value=room;}
 })();
