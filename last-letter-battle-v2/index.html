@@ -23,7 +23,7 @@ button{border:0;border-radius:12px;padding:12px 15px;font:700 14px system-ui;cur
 <header class="top"><div class="brand">⚡ LAST LETTER <span>BATTLE</span></div><div class="chip">CLASSROOM · LIVE</div></header>
 <h1>Think fast.<br><b>Spell faster.</b></h1><p class="intro">Oxirgi harfni ol — yangi so‘z top — jamoangga ochko olib kel!</p>
 <section id="setup" class="grid">
- <div class="card"><h2>🎓 O‘qituvchi xonasi</h2><p class="muted">Yangi xona oching yoki mavjud xonani boshqaring.</p>
+ <div id="teacherSetupCard" class="card"><h2>🎓 O‘qituvchi xonasi</h2><p class="muted">Yangi xona oching yoki mavjud xonani boshqaring.</p>
  <label>O‘qituvchi paroli</label><input id="teacherPin" type="password" autocomplete="current-password" placeholder="Kamida 4 belgi">
  <div class="actions"><button id="createRoom">Xona yaratish</button><button id="openTeacher" class="secondary">Mavjud xonani ochish</button></div>
  <label>Xona kodi</label><input id="roomCodeInput" maxlength="8" placeholder="ABC123"></div>
@@ -64,7 +64,7 @@ let room=null,player=null,isTeacher=false,players=[],game=emptyGame(),channel=nu
 function emptyGame(){return {status:"waiting",selected1:null,selected2:null,turn:1,score1:0,score2:0,seconds:90,lastWord:"",used:[],words:[],endsAt:null}}
 function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 function say(id,msg,error=false){$(id).textContent=msg;$(id).classList.toggle("error",error)}
-function roomUrl(){const u=new URL(location.href);u.search="";u.searchParams.set("room",room);return u.toString()}
+function roomUrl(){const u=new URL(location.href);u.search="";u.searchParams.set("room",room);u.searchParams.set("student","1");u.hash="";return u.toString()}
 function uuid(){return crypto.randomUUID()}
 function rosterHtml(arr){return arr.length?arr.map(p=>'<div class="person"><span>'+esc(p.name)+'</span><small>Qo‘shildi</small></div>').join(""):'<div class="empty">Hali ishtirokchi yo‘q</div>'}
 function renderRoster(){
@@ -229,6 +229,7 @@ $("downloadQr").addEventListener("click",()=>{const canvas=$("qr").querySelector
 (async()=>{
  const params=new URLSearchParams(location.search),initial=params.get("room");
  if(initial){$("roomCodeInput").value=initial.toUpperCase();}
+ if(params.get("student")==="1" && params.get("teacher")!=="1"){$("teacherSetupCard").classList.add("hidden");$("studentName").focus();}
  if(!db){$("connection").textContent="Backend kutubxonasi yuklanmadi";return}
  if(initial&&params.get("teacher")==="1"){room=initial.toUpperCase();isTeacher=true;$("setup").classList.remove("hidden");$("teacherPin").placeholder="O‘qituvchi paroli";$("roomCodeInput").value=room;}
 })();
