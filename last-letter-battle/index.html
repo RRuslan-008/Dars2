@@ -39,7 +39,7 @@ button{border:0;border-radius:12px;padding:12px 16px;font:700 15px inherit;curso
  <div class="card"><h2>🔵 1-guruh</h2><div class="count" id="count1">0</div><div class="muted">ishtirokchi</div><div id="list1" class="muted"></div></div>
  <div class="card"><h2>⚫ 2-guruh</h2><div class="count" id="count2">0</div><div class="muted">ishtirokchi</div><div id="list2" class="muted"></div></div>
  <div class="card wide" id="teacherPanel">
-  <h2>🎡 Ishtirokchilarni tanlash</h2><p class="muted">Har jamoadan bittadan o‘quvchi tasodifiy tanlanadi. Buning uchun ikkala jamoada ham kamida bittadan o‘quvchi bo‘lishi kerak.</p>
+  <h2>🎡 Ishtirokchilarni tanlash</h2><div class="actions"><button id="refreshPlayers" class="secondary">↻ O‘quvchilarni yangilash</button><span id="playerLoadStatus" class="muted">Ro‘yxat yuklanmoqda…</span></div><p class="muted">Har jamoadan bittadan o‘quvchi tasodifiy tanlanadi. Buning uchun ikkala jamoada ham kamida bittadan o‘quvchi bo‘lishi kerak.</p>
   <div class="teams"><div class="team"><h3>🔵 1-guruh barabani</h3><div id="wheel1" class="wheel">Hali tanlanmadi</div></div><div class="team two"><h3>⚫ 2-guruh barabani</h3><div id="wheel2" class="wheel">Hali tanlanmadi</div></div></div>
   <div class="actions"><button id="spin" class="blue">🎲 Ikkala barabanni aylantirish</button><button id="start" disabled>▶ START · 90 SEC</button><button id="reset" class="secondary">Yangi raund</button></div>
   <div class="muted" id="teacherMsg">Avval o‘quvchilar QR orqali qo‘shilsin.</div><div style="margin-top:18px"><h2>📡 O‘qituvchi — jonli monitoring</h2><div class="monitor"><div class="monitorBox"><span class="muted">Hozirgi navbat</span><strong id="monitorTurn">Kutilmoqda</strong></div><div class="monitorBox"><span class="muted">Oxirgi kiritilgan so‘z</span><strong id="monitorWord">—</strong></div><div class="monitorBox"><span class="muted">1-guruh o‘yinchisi</span><strong id="monitorPlayer1">—</strong></div><div class="monitorBox"><span class="muted">2-guruh o‘yinchisi</span><strong id="monitorPlayer2">—</strong></div></div><h3 style="margin-bottom:6px">So‘zlar tarixi</h3><div id="monitorLog" class="liveLog muted">Hali so‘z kiritilmadi.</div></div>
@@ -97,7 +97,7 @@ function render(){
    else setStatus("Hozir "+(Number(game.turn)===1?"1-guruh":"2-guruh")+" navbati. Siz tanlangan o‘yinchi emassiz.");
  }
  $("start").disabled=!(game.selected1&&game.selected2)||game.status==="playing";
- if(isTeacher)$("teacherMsg").textContent=game.selected1&&game.selected2?"Tanlangan o‘yinchilar tayyor. START bosing.":"Har ikki jamoadan bittadan o‘quvchi tanlang.";
+ if(isTeacher)$("teacherMsg").textContent=game.selected1&&game.selected2?"Tanlangan o‘yinchilar tayyor. START bosing.":"Har ikki jamoadan bittadan o‘quvchi tanlang. Avval ro‘yxat yangilanganini tekshiring.";
  if(game.status==="finished")$("winner").textContent=game.score1===game.score2?"🤝 DURRANG!":game.score1>game.score2?"🏆 1-GURUH G‘OLIB!":"🏆 2-GURUH G‘OLIB!";else if(game.status==="playing")$("winner").textContent="";
 }
 async function loadRoom(){
@@ -107,7 +107,7 @@ async function loadRoom(){
  $("connection").textContent="Onlayn";await refresh();
  channel=db.channel("room-"+room).on("postgres_changes",{event:"*",schema:"public",table:"llb_players",filter:"room_code=eq."+room},scheduleRefresh)
  .on("postgres_changes",{event:"*",schema:"public",table:"llb_game",filter:"room_code=eq."+room},scheduleRefresh).subscribe(s=>{$("connection").textContent=s==="SUBSCRIBED"?"Jonli monitoring":"Ulanmoqda…"});
- poll=setInterval(scheduleRefresh,1500);window.addEventListener("focus",scheduleRefresh);document.addEventListener("visibilitychange",()=>{if(!document.hidden)scheduleRefresh()});
+ poll=setInterval(scheduleRefresh,1000);window.addEventListener("focus",scheduleRefresh);document.addEventListener("visibilitychange",()=>{if(!document.hidden)scheduleRefresh()});
 }
 function scheduleRefresh(){if(refreshTimer)clearTimeout(refreshTimer);refreshTimer=setTimeout(()=>{refreshTimer=null;refresh()},60)}
 async function refresh(){
@@ -116,8 +116,8 @@ async function refresh(){
  refreshInFlight=true;
  try{
   const [p,g]=await Promise.all([db.from("llb_players").select("*").eq("room_code",room).order("created_at"),db.from("llb_game").select("*").eq("room_code",room).maybeSingle()]);
-  if(p.error){console.error("Players refresh:",p.error);if(isTeacher)$("connection").textContent="O‘quvchilarni yuklashda xato";}
-  else {players=p.data||[];if(isTeacher)$("connection").textContent="Jonli · "+players.length+" o‘quvchi";}
+  if(p.error){console.error("Players refresh:",p.error);if(isTeacher){$("connection").textContent="Yuklashda xato";$("playerLoadStatus").textContent="Xatolik: "+p.error.message;}}
+  else {players=Array.isArray(p.data)?p.data:[];if(isTeacher){$("connection").textContent="Jonli · "+players.length+" o‘quvchi";$("playerLoadStatus").textContent=players.length+" nafar o‘quvchi topildi";}}
   if(g.error){console.error("Game refresh:",g.error);}
   else if(g.data){const x=g.data;game={status:x.status,selected1:x.selected1,selected2:x.selected2,turn:x.turn,score1:x.score1,score2:x.score2,seconds:x.seconds,lastWord:x.last_word||"",used:x.used_words||[],words:x.words||[],endsAt:x.ends_at};}
   render(); if(game.status==="playing")startTicker();else stopTicker();
@@ -162,11 +162,12 @@ async function openTeacher(){
  isTeacher=true;sessionStorage.setItem("llb_teacher_"+room,pin);history.replaceState({}, "",location.pathname+"?room="+room+"&teacher=1");showRoom();await loadRoom();
 }
 $("createRoom").onclick=createRoom;$("joinRoom").onclick=enterRoom;$("openTeacher").onclick=openTeacher;
+$("refreshPlayers").onclick=async()=>{if(!isTeacher)return;$("playerLoadStatus").textContent="Yangilanmoqda…";await refresh();};
 $("spin").onclick=async()=>{
- if(!isTeacher)return;const a=players.filter(p=>p.team===1),b=players.filter(p=>p.team===2);if(!a.length||!b.length){alert("Har ikki jamoada kamida bittadan o‘quvchi bo‘lsin.");return}
- $("spin").disabled=true;let n=0;const anim=setInterval(()=>{ $("wheel1").textContent=a[Math.floor(Math.random()*a.length)].name;$("wheel2").textContent=b[Math.floor(Math.random()*b.length)].name;n++;if(n>18){clearInterval(anim);game.selected1=a[Math.floor(Math.random()*a.length)];game.selected2=b[Math.floor(Math.random()*b.length)];game.status="ready";saveGame().finally(()=>{$("spin").disabled=false;});}},100);
+ if(!isTeacher)return;await refresh();const a=players.filter(p=>Number(p.team)===1),b=players.filter(p=>Number(p.team)===2);if(!a.length||!b.length){alert("Har ikki jamoada kamida bittadan o‘quvchi bo‘lsin.");return}
+ $("spin").disabled=true;let n=0;const anim=setInterval(()=>{ $("wheel1").textContent=a[Math.floor(Math.random()*a.length)].name;$("wheel2").textContent=b[Math.floor(Math.random()*b.length)].name;n++;if(n>18){clearInterval(anim);game.selected1=a[Math.floor(Math.random()*a.length)];game.selected2=b[Math.floor(Math.random()*b.length)];game.status="ready";saveGame().then(()=>refresh()).catch(e=>{console.error(e);alert("Tanlovni saqlab bo‘lmadi: "+e.message)}).finally(()=>{$("spin").disabled=false;});}},100);
 };
-$("start").onclick=async()=>{if(!isTeacher||!game.selected1||!game.selected2)return;game={...game,status:"playing",turn:1,score1:0,score2:0,seconds:90,lastWord:"",used:[],words:[],endsAt:new Date(Date.now()+90000).toISOString()};$("winner").textContent="";await saveGame();startTicker()};
+$("start").onclick=async()=>{if(!isTeacher)return;await refresh();if(!game.selected1||!game.selected2){alert("Avval ikkala guruhdan o‘yinchi tanlang.");return;}game={...game,status:"playing",turn:1,score1:0,score2:0,seconds:90,lastWord:"",used:[],words:[],endsAt:new Date(Date.now()+90000).toISOString()};$("winner").textContent="";await saveGame();startTicker()};
 $("reset").onclick=async()=>{if(!isTeacher)return;game={status:"waiting",selected1:null,selected2:null,turn:1,score1:0,score2:0,seconds:90,lastWord:"",used:[],words:[],endsAt:null};$("winner").textContent="";await saveGame()};
 async function validEnglish(w){
  try{const r=await fetch("https://api.dictionaryapi.dev/api/v2/entries/en/"+encodeURIComponent(w));return r.ok}catch{return false}
