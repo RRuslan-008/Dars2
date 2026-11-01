@@ -30,22 +30,22 @@ button{border:0;border-radius:12px;padding:12px 16px;font:700 15px inherit;curso
  <div class="card">
   <h2>👋 O‘quvchi bo‘lib kirish</h2><p class="muted">O‘qituvchi bergan QR-kodni skanerlang yoki xona kodini kiriting.</p>
   <label>Ismingiz</label><input id="studentName" maxlength="30" placeholder="Ism Familiya">
-  <label>Jamoangiz</label><select id="studentTeam"><option value="1">1-guruh 🔵</option><option value="2">2-guruh 🌸</option></select>
+  <label>Jamoangiz</label><select id="studentTeam"><option value="1">1-guruh 🔵</option><option value="2">2-guruh ⚫</option></select>
   <button id="joinRoom" class="pink" style="width:100%;margin-top:14px">O‘yinga qo‘shilish</button>
  </div>
 </section>
 <section id="room" class="grid hidden">
  <div class="card wide"><div class="top"><div><div class="muted">XONA KODI</div><div id="roomCode" style="font-size:30px;font-weight:900;letter-spacing:.12em">------</div></div><div class="pill" id="connection">Ulanmoqda…</div></div></div>
  <div class="card"><h2>🔵 1-guruh</h2><div class="count" id="count1">0</div><div class="muted">ishtirokchi</div><div id="list1" class="muted"></div></div>
- <div class="card"><h2>🌸 2-guruh</h2><div class="count" id="count2">0</div><div class="muted">ishtirokchi</div><div id="list2" class="muted"></div></div>
+ <div class="card"><h2>⚫ 2-guruh</h2><div class="count" id="count2">0</div><div class="muted">ishtirokchi</div><div id="list2" class="muted"></div></div>
  <div class="card wide" id="teacherPanel">
   <h2>🎡 Ishtirokchilarni tanlash</h2><p class="muted">Har jamoadan bittadan o‘quvchi tasodifiy tanlanadi. Buning uchun ikkala jamoada ham kamida bittadan o‘quvchi bo‘lishi kerak.</p>
-  <div class="teams"><div class="team"><h3>🔵 1-guruh barabani</h3><div id="wheel1" class="wheel">Hali tanlanmadi</div></div><div class="team two"><h3>🌸 2-guruh barabani</h3><div id="wheel2" class="wheel">Hali tanlanmadi</div></div></div>
+  <div class="teams"><div class="team"><h3>🔵 1-guruh barabani</h3><div id="wheel1" class="wheel">Hali tanlanmadi</div></div><div class="team two"><h3>⚫ 2-guruh barabani</h3><div id="wheel2" class="wheel">Hali tanlanmadi</div></div></div>
   <div class="actions"><button id="spin" class="blue">🎲 Ikkala barabanni aylantirish</button><button id="start" disabled>▶ START · 90 SEC</button><button id="reset" class="secondary">Yangi raund</button></div>
   <div class="muted" id="teacherMsg">Avval o‘quvchilar QR orqali qo‘shilsin.</div><div style="margin-top:18px"><h2>📡 O‘qituvchi — jonli monitoring</h2><div class="monitor"><div class="monitorBox"><span class="muted">Hozirgi navbat</span><strong id="monitorTurn">Kutilmoqda</strong></div><div class="monitorBox"><span class="muted">Oxirgi kiritilgan so‘z</span><strong id="monitorWord">—</strong></div><div class="monitorBox"><span class="muted">1-guruh o‘yinchisi</span><strong id="monitorPlayer1">—</strong></div><div class="monitorBox"><span class="muted">2-guruh o‘yinchisi</span><strong id="monitorPlayer2">—</strong></div></div><h3 style="margin-bottom:6px">So‘zlar tarixi</h3><div id="monitorLog" class="liveLog muted">Hali so‘z kiritilmadi.</div></div>
  </div>
  <div class="card wide">
-  <div class="teams"><div><div class="muted">🔵 1-GURUH HISOBI</div><div class="score" id="score1">0</div></div><div><div class="muted">🌸 2-GURUH HISOBI</div><div class="score" id="score2">0</div></div></div>
+  <div class="teams"><div><div class="muted">🔵 1-GURUH HISOBI</div><div class="score" id="score1">0</div></div><div><div class="muted">⚫ 2-GURUH HISOBI</div><div class="score" id="score2">0</div></div></div>
   <div class="timer" id="timer">01:30</div><div class="turn" id="turn">O‘yin boshlanishini kuting</div>
   <div class="muted" style="text-align:center">Joriy zanjir: <b id="lastWord">—</b> · Keyingi harf: <b id="nextLetter">—</b></div>
   <div class="wordline" style="margin-top:15px"><input id="wordInput" placeholder="English word..." autocomplete="off" disabled><button id="sendWord" disabled>Yuborish</button></div><div id="wordStatus" class="status"></div>
@@ -80,14 +80,14 @@ function render(){
  $("wheel1").textContent=game.selected1?.name||"Hali tanlanmadi";$("wheel2").textContent=game.selected2?.name||"Hali tanlanmadi";
  $("score1").textContent=game.score1||0;$("score2").textContent=game.score2||0;
  $("lastWord").textContent=game.lastWord||"—";$("nextLetter").textContent=game.lastWord?game.lastWord.slice(-1).toUpperCase():"Istalgan";
- $("turn").textContent=game.status==="playing"?(game.turn===1?"🔵 1-guruh navbati":"🌸 2-guruh navbati"):game.status==="finished"?"O‘yin yakunlandi":"O‘yin boshlanishini kuting";
- $("wordFeed").innerHTML=(game.words||[]).slice().reverse().map(w=>'<span class="word">'+safe(w.word)+' · '+(w.team===1?'🔵':'🌸')+'</span>').join("");
+ $("turn").textContent=game.status==="playing"?(game.turn===1?"🔵 1-guruh navbati":"⚫ 2-guruh navbati"):game.status==="finished"?"O‘yin yakunlandi":"O‘yin boshlanishini kuting";
+ $("wordFeed").innerHTML=(game.words||[]).slice().reverse().map(w=>'<span class="word">'+safe(w.word)+' · '+(w.team===1?'🔵':'⚫')+'</span>').join("");
  if(isTeacher){
   $("monitorTurn").textContent=game.status==="playing"?(game.turn===1?"1-guruh":"2-guruh"):game.status==="finished"?"Yakunlandi":"Kutilmoqda";
   $("monitorWord").textContent=game.lastWord||"—";
   $("monitorPlayer1").textContent=game.selected1?.name||"Tanlanmagan";
   $("monitorPlayer2").textContent=game.selected2?.name||"Tanlanmagan";
-  $("monitorLog").innerHTML=(game.words||[]).slice().reverse().map(w=>'<div class="liveRow"><span>'+safe(w.name||"O‘yinchi")+' · '+safe(w.word)+'</span><b>'+(w.team===1?"🔵 1-guruh":"🌸 2-guruh")+'</b></div>').join("")||"Hali so‘z kiritilmadi.";
+  $("monitorLog").innerHTML=(game.words||[]).slice().reverse().map(w=>'<div class="liveRow"><span>'+safe(w.name||"O‘yinchi")+' · '+safe(w.word)+'</span><b>'+(w.team===1?"🔵 1-guruh":"⚫ 2-guruh")+'</b></div>').join("")||"Hali so‘z kiritilmadi.";
  }
  const selectedNow=Number(game.turn)===1?game.selected1:game.selected2;
  const active=game.status==="playing"&&!!player&&!!selectedNow&&String(player.id)===String(selectedNow.id);
