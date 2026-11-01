@@ -62,7 +62,7 @@ button{border:0;border-radius:12px;padding:12px 16px;font:700 15px inherit;curso
 const SUPABASE_URL = "https://optmsaojyemruzfeljzv.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_RUmojDcEO0uVz52GP9vT-w_xNptGYrU";
 const $ = id => document.getElementById(id);
-let db=null, room=null, player=null, isTeacher=false, channel=null, poll=null, refreshTimer=null;
+let db=null, room=null, player=null, isTeacher=false, channel=null, poll=null, refreshTimer=null, refreshInFlight=false, refreshAgain=false;
 let players=[], game={status:"waiting",selected1:null,selected2:null,turn:1,score1:0,score2:0,seconds:90,lastWord:"",used:[],words:[],endsAt:null};
 let ticking=null, busy=false;
 const configured=SUPABASE_URL.startsWith("https://") && SUPABASE_ANON_KEY!=="YOUR_SUPABASE_ANON_KEY";
@@ -107,15 +107,21 @@ async function loadRoom(){
  $("connection").textContent="Onlayn";await refresh();
  channel=db.channel("room-"+room).on("postgres_changes",{event:"*",schema:"public",table:"llb_players",filter:"room_code=eq."+room},scheduleRefresh)
  .on("postgres_changes",{event:"*",schema:"public",table:"llb_game",filter:"room_code=eq."+room},scheduleRefresh).subscribe(s=>{$("connection").textContent=s==="SUBSCRIBED"?"Jonli monitoring":"Ulanmoqda…"});
- poll=setInterval(scheduleRefresh,5000);
+ poll=setInterval(scheduleRefresh,1500);window.addEventListener("focus",scheduleRefresh);document.addEventListener("visibilitychange",()=>{if(!document.hidden)scheduleRefresh()});
 }
-function scheduleRefresh(){if(refreshTimer)clearTimeout(refreshTimer);refreshTimer=setTimeout(()=>{refreshTimer=null;refresh()},120)}
+function scheduleRefresh(){if(refreshTimer)clearTimeout(refreshTimer);refreshTimer=setTimeout(()=>{refreshTimer=null;refresh()},60)}
 async function refresh(){
  if(!db||!room)return;
- const [p,g]=await Promise.all([db.from("llb_players").select("*").eq("room_code",room).order("created_at"),db.from("llb_game").select("*").eq("room_code",room).maybeSingle()]);
- if(!p.error)players=p.data||[];
- if(g.data){const x=g.data;game={status:x.status,selected1:x.selected1,selected2:x.selected2,turn:x.turn,score1:x.score1,score2:x.score2,seconds:x.seconds,lastWord:x.last_word||"",used:x.used_words||[],words:x.words||[],endsAt:x.ends_at};}
- render(); if(game.status==="playing")startTicker();else stopTicker();
+ if(refreshInFlight){refreshAgain=true;return;}
+ refreshInFlight=true;
+ try{
+  const [p,g]=await Promise.all([db.from("llb_players").select("*").eq("room_code",room).order("created_at"),db.from("llb_game").select("*").eq("room_code",room).maybeSingle()]);
+  if(p.error){console.error("Players refresh:",p.error);if(isTeacher)$("connection").textContent="O‘quvchilarni yuklashda xato";}
+  else {players=p.data||[];if(isTeacher)$("connection").textContent="Jonli · "+players.length+" o‘quvchi";}
+  if(g.error){console.error("Game refresh:",g.error);}
+  else if(g.data){const x=g.data;game={status:x.status,selected1:x.selected1,selected2:x.selected2,turn:x.turn,score1:x.score1,score2:x.score2,seconds:x.seconds,lastWord:x.last_word||"",used:x.used_words||[],words:x.words||[],endsAt:x.ends_at};}
+  render(); if(game.status==="playing")startTicker();else stopTicker();
+ } finally {refreshInFlight=false;if(refreshAgain){refreshAgain=false;scheduleRefresh();}}
 }
 async function saveGame(){
  const row={room_code:room,status:game.status,selected1:game.selected1,selected2:game.selected2,turn:game.turn,score1:game.score1,score2:game.score2,seconds:game.seconds,last_word:game.lastWord,used_words:game.used,words:game.words,ends_at:game.endsAt};
