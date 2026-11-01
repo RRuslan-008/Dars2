@@ -174,8 +174,9 @@ $("sendWord").onclick=async()=>{
  if(game.lastWord&&w[0]!==game.lastWord.slice(-1)){setStatus("So‘z "+game.lastWord.slice(-1).toUpperCase()+" harfi bilan boshlanishi kerak.",true);busy=false;return}
  if(game.used.includes(w)){setStatus("Bu so‘z oldin ishlatilgan!",true);busy=false;return}
  const selected=game.turn===1?game.selected1:game.selected2;if(player.id!==selected?.id){setStatus("Hozir sizning navbatingiz emas.",true);busy=false;return}
- setStatus("So‘z tekshirilmoqda…");if(!(await validEnglish(w))){setStatus("Lug‘atda bunday inglizcha so‘z topilmadi.",true);busy=false;return}
- const {data:latest}=await db.from("llb_game").select("*").eq("room_code",room).single();
+ setStatus("So‘z tekshirilmoqda…");const [isEnglish,latestResult]=await Promise.all([validEnglish(w),db.from("llb_game").select("*").eq("room_code",room).single()]);
+ if(!isEnglish){setStatus("Lug‘atda bunday inglizcha so‘z topilmadi.",true);busy=false;return}
+ const latest=latestResult.data;
  if(!latest||latest.status!=="playing"||latest.turn!==game.turn||latest.last_word!==game.lastWord||latest.used_words?.includes(w)){setStatus("Navbat o‘zgardi. Ekranni yangilang.",true);busy=false;await refresh();return}
  game.lastWord=w;game.used.push(w);game.words.push({word:w,team:game.turn,name:player.name});if(game.turn===1)game.score1++;else game.score2++;game.turn=game.turn===1?2:1;
  await saveGame();$("wordInput").value="";setStatus("To‘g‘ri! Navbat boshqa jamoaga o‘tdi.");busy=false;
