@@ -82,8 +82,13 @@ function render(){
  $("lastWord").textContent=game.lastWord||"—";$("nextLetter").textContent=game.lastWord?game.lastWord.slice(-1).toUpperCase():"Istalgan";
  $("turn").textContent=game.status==="playing"?(game.turn===1?"🔵 1-guruh navbati":"🌸 2-guruh navbati"):game.status==="finished"?"O‘yin yakunlandi":"O‘yin boshlanishini kuting";
  $("wordFeed").innerHTML=(game.words||[]).slice().reverse().map(w=>'<span class="word">'+safe(w.word)+' · '+(w.team===1?'🔵':'🌸')+'</span>').join("");
- const active=game.status==="playing"&&player&&((game.turn===1&&player.id===game.selected1?.id)||(game.turn===2&&player.id===game.selected2?.id));
+ const selectedNow=Number(game.turn)===1?game.selected1:game.selected2;
+ const active=game.status==="playing"&&!!player&&!!selectedNow&&String(player.id)===String(selectedNow.id);
  $("wordInput").disabled=!active;$("sendWord").disabled=!active;
+ if(game.status==="playing"&&player){
+   if(active)setStatus("Siz tanlangan o‘yinchisiz — so‘z yozishingiz mumkin.");
+   else setStatus("Hozir "+(Number(game.turn)===1?"1-guruh":"2-guruh")+" navbati. Siz tanlangan o‘yinchi emassiz.");
+ }
  $("start").disabled=!(game.selected1&&game.selected2)||game.status==="playing";
  if(isTeacher)$("teacherMsg").textContent=game.selected1&&game.selected2?"Tanlangan o‘yinchilar tayyor. START bosing.":"Har ikki jamoadan bittadan o‘quvchi tanlang.";
  if(game.status==="finished")$("winner").textContent=game.score1===game.score2?"🤝 Durrang!":game.score1>game.score2?"🏆 1-GURUH G‘OLIB!":"🏆 2-GURUH G‘OLIB!";
@@ -153,7 +158,10 @@ async function validEnglish(w){
  try{const r=await fetch("https://api.dictionaryapi.dev/api/v2/entries/en/"+encodeURIComponent(w));return r.ok}catch{return false}
 }
 $("sendWord").onclick=async()=>{
- if(busy||!player||game.status!=="playing")return;busy=true;const w=$("wordInput").value.trim().toLowerCase();
+ if(busy||!player||game.status!=="playing")return;
+ const selectedNow=Number(game.turn)===1?game.selected1:game.selected2;
+ if(!selectedNow||String(player.id)!==String(selectedNow.id)){setStatus("Siz bu navbat uchun tanlanmagansiz.",true);return;}
+ busy=true;const w=$("wordInput").value.trim().toLowerCase();
  if(!/^[a-z]{2,20}$/.test(w)){setStatus("Faqat 2–20 harfli inglizcha so‘z kiriting.",true);busy=false;return}
  if(game.lastWord&&w[0]!==game.lastWord.slice(-1)){setStatus("So‘z "+game.lastWord.slice(-1).toUpperCase()+" harfi bilan boshlanishi kerak.",true);busy=false;return}
  if(game.used.includes(w)){setStatus("Bu so‘z oldin ishlatilgan!",true);busy=false;return}
