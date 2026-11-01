@@ -74,7 +74,7 @@ function makeQR(){ $("qr").innerHTML=""; if(window.QRCode)new QRCode($("qr"),{te
 function setStatus(s,err=false){$("wordStatus").textContent=s;$("wordStatus").className=err?"status error":"status"}
 function safe(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 function render(){
- const a=players.filter(p=>p.team===1),b=players.filter(p=>p.team===2);
+ const a=players.filter(p=>Number(p.team)===1),b=players.filter(p=>Number(p.team)===2);
  $("count1").textContent=a.length;$("count2").textContent=b.length;
  $("list1").textContent=a.map(p=>p.name).join(" · ")||"Hali yo‘q";$("list2").textContent=b.map(p=>p.name).join(" · ")||"Hali yo‘q";
  $("wheel1").textContent=game.selected1?.name||"Hali tanlanmadi";$("wheel2").textContent=game.selected2?.name||"Hali tanlanmadi";
@@ -106,8 +106,8 @@ async function loadRoom(){
  if(error||!r){$("connection").textContent="Xona topilmadi";return}
  $("connection").textContent="Onlayn";await refresh();
  channel=db.channel("room-"+room).on("postgres_changes",{event:"*",schema:"public",table:"llb_players",filter:"room_code=eq."+room},scheduleRefresh)
- .on("postgres_changes",{event:"*",schema:"public",table:"llb_game",filter:"room_code=eq."+room},scheduleRefresh).subscribe(s=>{$("connection").textContent=s==="SUBSCRIBED"?"Jonli monitoring":"Ulanmoqda…"});
- poll=setInterval(scheduleRefresh,1000);window.addEventListener("focus",scheduleRefresh);document.addEventListener("visibilitychange",()=>{if(!document.hidden)scheduleRefresh()});
+ .on("postgres_changes",{event:"*",schema:"public",table:"llb_game",filter:"room_code=eq."+room},scheduleRefresh).subscribe(s=>{ $("connection").textContent=s==="SUBSCRIBED"?"Jonli monitoring":"Ulanmoqda…"; if(s==="SUBSCRIBED")scheduleRefresh(); });
+ poll=setInterval(scheduleRefresh,700);window.addEventListener("focus",scheduleRefresh);document.addEventListener("visibilitychange",()=>{if(!document.hidden)scheduleRefresh()});
 }
 function scheduleRefresh(){if(refreshTimer)clearTimeout(refreshTimer);refreshTimer=setTimeout(()=>{refreshTimer=null;refresh()},60)}
 async function refresh(){
@@ -115,9 +115,11 @@ async function refresh(){
  if(refreshInFlight){refreshAgain=true;return;}
  refreshInFlight=true;
  try{
-  const [p,g]=await Promise.all([db.from("llb_players").select("*").eq("room_code",room).order("created_at"),db.from("llb_game").select("*").eq("room_code",room).maybeSingle()]);
+  const p=await db.from("llb_players").select("id,room_code,name,team,created_at").eq("room_code",room).order("created_at",{ascending:true});
   if(p.error){console.error("Players refresh:",p.error);if(isTeacher){$("connection").textContent="Yuklashda xato";$("playerLoadStatus").textContent="Xatolik: "+p.error.message;}}
-  else {players=Array.isArray(p.data)?p.data:[];if(isTeacher){$("connection").textContent="Jonli · "+players.length+" o‘quvchi";$("playerLoadStatus").textContent=players.length+" nafar o‘quvchi topildi";}}
+  else {players=(Array.isArray(p.data)?p.data:[]).map(x=>({...x,team:Number(x.team)}));if(isTeacher){$("connection").textContent="Jonli · "+players.length+" o‘quvchi";$("playerLoadStatus").textContent=players.length+" nafar o‘quvchi topildi";}}
+  render();
+  const g=await db.from("llb_game").select("*").eq("room_code",room).maybeSingle();
   if(g.error){console.error("Game refresh:",g.error);}
   else if(g.data){const x=g.data;game={status:x.status,selected1:x.selected1,selected2:x.selected2,turn:x.turn,score1:x.score1,score2:x.score2,seconds:x.seconds,lastWord:x.last_word||"",used:x.used_words||[],words:x.words||[],endsAt:x.ends_at};}
   render(); if(game.status==="playing")startTicker();else stopTicker();
